@@ -5,7 +5,7 @@ spring:
   application:
     name: fifarest
   datasource:
-    url: jdbc:mysql://${pratik-uat1-db.mysql.database.azure.com:localhost}:${DB_PORT:3306}/${DB_NAME:fifadb}?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://pratik-uat1-db.mysql.database.azure.com:localhost:3306/fifadb?createDatabaseIfNotExist=true&useSSL=true&serverTimezone=UTC
     username: ${DB_USERNAME:pratikuat}
     password: ${DB_PASSWORD:GJ06pf3965}
   jpa:
