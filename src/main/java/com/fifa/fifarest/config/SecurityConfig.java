@@ -5,6 +5,7 @@ import com.fifa.fifarest.security.RestAuthenticationEntryPoint;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -80,6 +81,8 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(restAuthenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/refresh")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/uploads/**")
                         .permitAll()
                         .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())

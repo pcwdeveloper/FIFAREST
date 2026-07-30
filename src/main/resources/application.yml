@@ -11,12 +11,21 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
 
 app:
+  # On Azure App Service (Linux), point UPLOAD_DIR at /home/uploads instead of the default —
+  # /home persists across restarts/redeploys, the rest of the filesystem does not. It's still
+  # not shared across multiple scaled-out instances.
+  upload:
+    dir: ${UPLOAD_DIR:uploads}
   jwt:
     secret: ${JWT_SECRET:this-is-a-dev-only-secret-key-please-change-it-before-production-use-1234567890}
     access-token-expiration-ms: 900000

@@ -50,7 +50,7 @@ public class BookingService {
         }
 
         User player = userService.getByEmail(playerEmail);
-        BigDecimal amount = slot.getCourt().getPricePerSlot();
+        BigDecimal amount = slot.getPrice() != null ? slot.getPrice() : slot.getCourt().getPricePerSlot();
 
         // Reserve the slot immediately so a second player can't book it while payment is pending.
         slot.setStatus(SlotStatus.BOOKED);

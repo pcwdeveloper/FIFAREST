@@ -35,6 +35,8 @@ public class Venue {
     @Column(length = 1000)
     private String description;
 
+    private String thumbnailFileName;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;

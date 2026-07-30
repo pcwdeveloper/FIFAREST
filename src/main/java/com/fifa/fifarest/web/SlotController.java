@@ -1,5 +1,7 @@
 package com.fifa.fifarest.web;
 
+import com.fifa.fifarest.dto.BulkSlotCreateResponse;
+import com.fifa.fifarest.dto.BulkSlotRequest;
 import com.fifa.fifarest.dto.SlotRequest;
 import com.fifa.fifarest.dto.SlotResponse;
 import com.fifa.fifarest.dto.SlotStatusUpdateRequest;
@@ -30,6 +32,14 @@ public class SlotController {
                                                 @Valid @RequestBody SlotRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(slotService.create(courtId, authentication.getName(), request));
+    }
+
+    @PostMapping("/api/courts/{courtId}/slots/bulk")
+    @PreAuthorize("hasRole('VENUE_OWNER')")
+    public ResponseEntity<BulkSlotCreateResponse> generateForMonth(Authentication authentication, @PathVariable Long courtId,
+                                                                    @Valid @RequestBody BulkSlotRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(slotService.generateForMonth(courtId, authentication.getName(), request));
     }
 
     @GetMapping("/api/courts/{courtId}/slots")

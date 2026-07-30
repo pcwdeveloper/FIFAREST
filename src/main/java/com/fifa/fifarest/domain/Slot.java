@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -37,6 +38,18 @@ public class Slot {
 
     @Column(nullable = false)
     private LocalTime endTime;
+
+    // Nullable so existing rows created before per-slot pricing (which fall back to
+    // Court.pricePerSlot) remain valid; every slot created going forward has this set.
+    @Column(precision = 10, scale = 2)
+    private BigDecimal price;
+
+    // Only set by bulk month-generation (the owner's own label for the time window that
+    // produced this slot); null for manually-added slots, which fall back to a best-guess
+    // classification by start time (see TimeOfDay.fromStartTime).
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private TimeOfDay category;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

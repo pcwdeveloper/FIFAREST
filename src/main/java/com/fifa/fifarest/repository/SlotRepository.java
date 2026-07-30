@@ -14,4 +14,6 @@ public interface SlotRepository extends JpaRepository<Slot, Long> {
     List<Slot> findByCourtAndDate(Court court, LocalDate date);
 
     List<Slot> findByCourtAndDateAndStatusOrderByStartTimeAsc(Court court, LocalDate date, SlotStatus status);
+
+    List<Slot> findByCourtAndDateBetween(Court court, LocalDate startDate, LocalDate endDate);
 }

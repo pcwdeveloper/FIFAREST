@@ -10,6 +10,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -69,6 +70,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PaymentGatewayException.class)
     public ResponseEntity<ApiError> handlePaymentGateway(PaymentGatewayException ex, HttpServletRequest request) {
         return build(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(InvalidFileException.class)
+    public ResponseEntity<ApiError> handleInvalidFile(InvalidFileException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request, null);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleMaxUploadSize(MaxUploadSizeExceededException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, "File is too large — maximum size is 5MB", request, null);
     }
 
     @ExceptionHandler(Exception.class)
