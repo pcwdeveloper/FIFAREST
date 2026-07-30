@@ -10,5 +10,5 @@
 -- on an older server, drop the "IF NOT EXISTS" clauses and only run this once).
 
 ALTER TABLE slots
-    ADD COLUMN IF NOT EXISTS price DECIMAL(10, 2) NULL,
-    ADD COLUMN IF NOT EXISTS category VARCHAR(20) NULL;
+    ADD COLUMN price DECIMAL(10, 2) NULL,
+    ADD COLUMN category VARCHAR(20) NULL;
