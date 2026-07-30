@@ -1,0 +1,1 @@
+Successfully deploy on azure
