@@ -51,6 +51,13 @@ public class CourtService {
         return courtRepository.findByVenue(venue).stream().map(CourtResponse::from).toList();
     }
 
+    public List<CourtResponse> listByVenueAndSport(Long venueId, Long sportId, String requesterEmail) {
+        Venue venue = venueService.getById(venueId);
+        assertOwner(venue, requesterEmail);
+        Sport sport = getSport(sportId);
+        return courtRepository.findByVenueAndSport(venue, sport).stream().map(CourtResponse::from).toList();
+    }
+
     public List<CourtResponse> listPublicByVenue(Long venueId) {
         Venue venue = venueService.getById(venueId);
         if (venue.getStatus() != VenueStatus.APPROVED) {

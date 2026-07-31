@@ -35,6 +35,14 @@ public class CourtController {
         return ResponseEntity.ok(courtService.listByVenue(venueId, authentication.getName()));
     }
 
+    @GetMapping("/api/venues/{venueId}/sports/{sportId}/courts")
+    @PreAuthorize("hasRole('VENUE_OWNER')")
+    public ResponseEntity<List<CourtResponse>> listByVenueAndSport(Authentication authentication,
+                                                                     @PathVariable Long venueId,
+                                                                     @PathVariable Long sportId) {
+        return ResponseEntity.ok(courtService.listByVenueAndSport(venueId, sportId, authentication.getName()));
+    }
+
     @GetMapping("/api/venues/{venueId}/courts/public")
     public ResponseEntity<List<CourtResponse>> listPublicByVenue(@PathVariable Long venueId) {
         return ResponseEntity.ok(courtService.listPublicByVenue(venueId));
