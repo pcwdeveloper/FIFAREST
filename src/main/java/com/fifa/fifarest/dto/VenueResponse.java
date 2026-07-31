@@ -11,20 +11,20 @@ public record VenueResponse(
         String address,
         String city,
         String description,
-        String thumbnailFileName,
+        String thumbnailUrl,
         VenueStatus status,
         Long ownerId,
         String ownerName,
         Instant createdAt
 ) {
-    public static VenueResponse from(Venue venue) {
+    public static VenueResponse from(Venue venue, String thumbnailUrl) {
         return new VenueResponse(
                 venue.getId(),
                 venue.getName(),
                 venue.getAddress(),
                 venue.getCity(),
                 venue.getDescription(),
-                venue.getThumbnailFileName(),
+                thumbnailUrl,
                 venue.getStatus(),
                 venue.getOwner().getId(),
                 venue.getOwner().getFullName(),

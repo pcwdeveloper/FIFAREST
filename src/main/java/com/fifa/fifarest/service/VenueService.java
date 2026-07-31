@@ -10,16 +10,10 @@ import com.fifa.fifarest.exception.ForbiddenActionException;
 import com.fifa.fifarest.exception.InvalidFileException;
 import com.fifa.fifarest.exception.ResourceNotFoundException;
 import com.fifa.fifarest.repository.VenueRepository;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -31,13 +25,13 @@ public class VenueService {
 
     private final VenueRepository venueRepository;
     private final UserService userService;
-    private final Path uploadDir;
+    private final AzureBlobStorageService blobStorageService;
 
     public VenueService(VenueRepository venueRepository, UserService userService,
-                         @Value("${app.upload.dir}") String uploadDirPath) {
+                         AzureBlobStorageService blobStorageService) {
         this.venueRepository = venueRepository;
         this.userService = userService;
-        this.uploadDir = Path.of(uploadDirPath, "venues");
+        this.blobStorageService = blobStorageService;
     }
 
     @Transactional
@@ -53,32 +47,32 @@ public class VenueService {
                 .status(VenueStatus.PENDING)
                 .build();
 
-        return VenueResponse.from(venueRepository.save(venue));
+        return toResponse(venueRepository.save(venue));
     }
 
     public List<VenueResponse> listMine(String ownerEmail) {
         User owner = userService.getByEmail(ownerEmail);
-        return venueRepository.findByOwner(owner).stream().map(VenueResponse::from).toList();
+        return venueRepository.findByOwner(owner).stream().map(this::toResponse).toList();
     }
 
     public List<VenueResponse> listAll(VenueStatus statusFilter) {
         List<Venue> venues = statusFilter != null
                 ? venueRepository.findByStatus(statusFilter)
                 : venueRepository.findAll();
-        return venues.stream().map(VenueResponse::from).toList();
+        return venues.stream().map(this::toResponse).toList();
     }
 
     public List<VenueResponse> listPublic(String city) {
         return venueRepository.findByStatus(VenueStatus.APPROVED).stream()
                 .filter(venue -> city == null || city.isBlank() || venue.getCity().equalsIgnoreCase(city))
-                .map(VenueResponse::from)
+                .map(this::toResponse)
                 .toList();
     }
 
     public VenueResponse getForOwner(Long id, String requesterEmail) {
         Venue venue = getById(id);
         assertOwner(venue, requesterEmail);
-        return VenueResponse.from(venue);
+        return toResponse(venue);
     }
 
     @Transactional
@@ -91,7 +85,7 @@ public class VenueService {
         venue.setCity(request.city());
         venue.setDescription(request.description());
 
-        return VenueResponse.from(venueRepository.save(venue));
+        return toResponse(venueRepository.save(venue));
     }
 
     @Transactional
@@ -109,7 +103,7 @@ public class VenueService {
 
         Venue venue = getById(id);
         venue.setStatus(request.status());
-        return VenueResponse.from(venueRepository.save(venue));
+        return toResponse(venueRepository.save(venue));
     }
 
     @Transactional
@@ -124,37 +118,20 @@ public class VenueService {
             throw new InvalidFileException("Only JPEG, PNG, or WEBP images are allowed");
         }
 
-        try {
-            Files.createDirectories(uploadDir);
+        String extension = switch (file.getContentType()) {
+            case "image/png" -> ".png";
+            case "image/webp" -> ".webp";
+            default -> ".jpg";
+        };
+        String blobName = "venue-images/" + UUID.randomUUID() + extension;
+        blobStorageService.upload(blobName, file);
 
-            String extension = switch (file.getContentType()) {
-                case "image/png" -> ".png";
-                case "image/webp" -> ".webp";
-                default -> ".jpg";
-            };
-            String filename = UUID.randomUUID() + extension;
-            Path target = uploadDir.resolve(filename);
-            file.transferTo(target);
-
-            deleteExistingThumbnailFile(venue);
-            venue.setThumbnailFileName(filename);
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to store the uploaded thumbnail", e);
+        if (venue.getThumbnailFileName() != null) {
+            blobStorageService.delete(venue.getThumbnailFileName());
         }
+        venue.setThumbnailFileName(blobName);
 
-        return VenueResponse.from(venueRepository.save(venue));
-    }
-
-    private void deleteExistingThumbnailFile(Venue venue) {
-        String existing = venue.getThumbnailFileName();
-        if (existing == null) {
-            return;
-        }
-        try {
-            Files.deleteIfExists(uploadDir.resolve(existing));
-        } catch (IOException ignored) {
-            // Best-effort cleanup — an orphaned file on disk isn't worth failing the request over.
-        }
+        return toResponse(venueRepository.save(venue));
     }
 
     Venue getById(Long id) {
@@ -166,5 +143,9 @@ public class VenueService {
         if (!venue.getOwner().getEmail().equalsIgnoreCase(requesterEmail)) {
             throw new ForbiddenActionException("You do not own this venue");
         }
+    }
+
+    private VenueResponse toResponse(Venue venue) {
+        return VenueResponse.from(venue, blobStorageService.generateReadUrl(venue.getThumbnailFileName()));
     }
 }

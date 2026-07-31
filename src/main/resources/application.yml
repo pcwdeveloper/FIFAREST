@@ -26,12 +26,19 @@ app:
   # not shared across multiple scaled-out instances.
   upload:
     dir: ${UPLOAD_DIR:uploads}
+  azure:
+    storage:
+      # Set AZURE_STORAGE_CONNECTION_STRING as an environment variable (IDE run config locally,
+      # Azure App Service "Application settings" in production) — never commit the real value,
+      # it's a full-access account key.
+      connection-string: ${AZURE_STORAGE_CONNECTION_STRING:DefaultEndpointsProtocol=https;AccountName=uatimagestorage;AccountKey=idoPmwfPbSThSQDU6QVZvUXXo1RsjsTyfH4wZ61lS4jyHFLtBaGGa2T6meYsaCcLOL/vj+Wbxll0+AStZeYt6w==;EndpointSuffix=core.windows.net}
+      container-name: ${AZURE_STORAGE_CONTAINER:myappimages}
   jwt:
     secret: ${JWT_SECRET:this-is-a-dev-only-secret-key-please-change-it-before-production-use-1234567890}
     access-token-expiration-ms: 900000
     refresh-token-expiration-ms: 604800000
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://red-bush-07ef42200.7.azurestaticapps.net}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://red-bush-07ef42200.7.azurestaticapps.net,http://localhost:4200}
   razorpay:
     key-id: ${RAZORPAY_KEY_ID:}
     key-secret: ${RAZORPAY_KEY_SECRET:}
