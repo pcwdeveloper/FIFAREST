@@ -5,9 +5,12 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-public record SlotRequest(
-        @NotNull(message = "Date is required")
-        LocalDate date,
+public record BulkSlotBlockRequest(
+        @NotNull(message = "Start date is required")
+        LocalDate startDate,
+
+        @NotNull(message = "End date is required")
+        LocalDate endDate,
 
         @NotNull(message = "Start time is required")
         LocalTime startTime,

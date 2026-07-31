@@ -18,6 +18,10 @@ public record BulkSlotRequest(
         @Max(value = 12, message = "Month must be between 1 and 12")
         Integer month,
 
+        @NotNull(message = "Interval is required")
+        @Min(value = 15, message = "Interval must be at least 15 minutes")
+        Integer intervalMinutes,
+
         @NotNull @Valid CategoryConfig morning,
         @NotNull @Valid CategoryConfig afternoon,
         @NotNull @Valid CategoryConfig evening,
@@ -27,7 +31,6 @@ public record BulkSlotRequest(
             boolean enabled,
             LocalTime startTime,
             LocalTime endTime,
-            Integer intervalMinutes,
             BigDecimal price
     ) {
     }

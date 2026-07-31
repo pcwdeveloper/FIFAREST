@@ -1,8 +1,11 @@
 package com.fifa.fifarest.web;
 
+import com.fifa.fifarest.dto.BulkSlotBlockRequest;
+import com.fifa.fifarest.dto.BulkSlotBlockResponse;
 import com.fifa.fifarest.dto.BulkSlotCreateResponse;
+import com.fifa.fifarest.dto.BulkSlotDeleteRequest;
+import com.fifa.fifarest.dto.BulkSlotDeleteResponse;
 import com.fifa.fifarest.dto.BulkSlotRequest;
-import com.fifa.fifarest.dto.SlotRequest;
 import com.fifa.fifarest.dto.SlotResponse;
 import com.fifa.fifarest.dto.SlotStatusUpdateRequest;
 import com.fifa.fifarest.service.SlotService;
@@ -26,20 +29,26 @@ public class SlotController {
         this.slotService = slotService;
     }
 
-    @PostMapping("/api/courts/{courtId}/slots")
-    @PreAuthorize("hasRole('VENUE_OWNER')")
-    public ResponseEntity<SlotResponse> create(Authentication authentication, @PathVariable Long courtId,
-                                                @Valid @RequestBody SlotRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(slotService.create(courtId, authentication.getName(), request));
-    }
-
     @PostMapping("/api/courts/{courtId}/slots/bulk")
     @PreAuthorize("hasRole('VENUE_OWNER')")
     public ResponseEntity<BulkSlotCreateResponse> generateForMonth(Authentication authentication, @PathVariable Long courtId,
                                                                     @Valid @RequestBody BulkSlotRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(slotService.generateForMonth(courtId, authentication.getName(), request));
+    }
+
+    @PostMapping("/api/courts/{courtId}/slots/bulk-delete")
+    @PreAuthorize("hasRole('VENUE_OWNER')")
+    public ResponseEntity<BulkSlotDeleteResponse> deleteForMonth(Authentication authentication, @PathVariable Long courtId,
+                                                                  @Valid @RequestBody BulkSlotDeleteRequest request) {
+        return ResponseEntity.ok(slotService.deleteForMonth(courtId, authentication.getName(), request));
+    }
+
+    @PostMapping("/api/courts/{courtId}/slots/bulk-block")
+    @PreAuthorize("hasRole('VENUE_OWNER')")
+    public ResponseEntity<BulkSlotBlockResponse> blockForDateRange(Authentication authentication, @PathVariable Long courtId,
+                                                                    @Valid @RequestBody BulkSlotBlockRequest request) {
+        return ResponseEntity.ok(slotService.blockForDateRange(courtId, authentication.getName(), request));
     }
 
     @GetMapping("/api/courts/{courtId}/slots")

@@ -4,9 +4,12 @@ import com.fifa.fifarest.domain.Court;
 import com.fifa.fifarest.domain.Slot;
 import com.fifa.fifarest.domain.SlotStatus;
 import com.fifa.fifarest.domain.TimeOfDay;
+import com.fifa.fifarest.dto.BulkSlotBlockRequest;
+import com.fifa.fifarest.dto.BulkSlotBlockResponse;
 import com.fifa.fifarest.dto.BulkSlotCreateResponse;
+import com.fifa.fifarest.dto.BulkSlotDeleteRequest;
+import com.fifa.fifarest.dto.BulkSlotDeleteResponse;
 import com.fifa.fifarest.dto.BulkSlotRequest;
-import com.fifa.fifarest.dto.SlotRequest;
 import com.fifa.fifarest.dto.SlotResponse;
 import com.fifa.fifarest.dto.SlotStatusUpdateRequest;
 import com.fifa.fifarest.exception.ForbiddenActionException;
@@ -37,33 +40,6 @@ public class SlotService {
         this.courtService = courtService;
     }
 
-    @Transactional
-    public SlotResponse create(Long courtId, String requesterEmail, SlotRequest request) {
-        Court court = courtService.getByIdForOwner(courtId, requesterEmail);
-
-        if (!request.endTime().isAfter(request.startTime())) {
-            throw new IllegalArgumentException("End time must be after start time");
-        }
-
-        boolean overlaps = slotRepository.findByCourtAndDate(court, request.date()).stream()
-                .anyMatch(existing -> request.startTime().isBefore(existing.getEndTime())
-                        && request.endTime().isAfter(existing.getStartTime()));
-        if (overlaps) {
-            throw new IllegalArgumentException("This slot overlaps with an existing slot for this court");
-        }
-
-        Slot slot = Slot.builder()
-                .court(court)
-                .date(request.date())
-                .startTime(request.startTime())
-                .endTime(request.endTime())
-                .price(court.getPricePerSlot())
-                .status(SlotStatus.AVAILABLE)
-                .build();
-
-        return SlotResponse.from(slotRepository.save(slot));
-    }
-
     public List<SlotResponse> listByCourtForOwner(Long courtId, String requesterEmail) {
         Court court = courtService.getByIdForOwner(courtId, requesterEmail);
         return slotRepository.findByCourtOrderByDateAscStartTimeAsc(court).stream()
@@ -91,11 +67,15 @@ public class SlotService {
         LocalDate monthStart = yearMonth.atDay(1);
         LocalDate monthEnd = yearMonth.atEndOfMonth();
 
+        if (request.intervalMinutes() == null || request.intervalMinutes() < 15) {
+            throw new IllegalArgumentException("Interval must be at least 15 minutes");
+        }
+
         List<CategoryPlan> plans = new ArrayList<>();
-        addPlanIfEnabled(plans, TimeOfDay.MORNING, request.morning());
-        addPlanIfEnabled(plans, TimeOfDay.AFTERNOON, request.afternoon());
-        addPlanIfEnabled(plans, TimeOfDay.EVENING, request.evening());
-        addPlanIfEnabled(plans, TimeOfDay.NIGHT, request.night());
+        addPlanIfEnabled(plans, TimeOfDay.MORNING, request.morning(), request.intervalMinutes());
+        addPlanIfEnabled(plans, TimeOfDay.AFTERNOON, request.afternoon(), request.intervalMinutes());
+        addPlanIfEnabled(plans, TimeOfDay.EVENING, request.evening(), request.intervalMinutes());
+        addPlanIfEnabled(plans, TimeOfDay.NIGHT, request.night(), request.intervalMinutes());
 
         if (plans.isEmpty()) {
             throw new IllegalArgumentException("Select at least one time-of-day category to generate slots for");
@@ -153,7 +133,8 @@ public class SlotService {
         return new BulkSlotCreateResponse(created, skipped);
     }
 
-    private void addPlanIfEnabled(List<CategoryPlan> plans, TimeOfDay timeOfDay, BulkSlotRequest.CategoryConfig config) {
+    private void addPlanIfEnabled(List<CategoryPlan> plans, TimeOfDay timeOfDay, BulkSlotRequest.CategoryConfig config,
+                                   int intervalMinutes) {
         if (config == null || !config.enabled()) {
             return;
         }
@@ -163,15 +144,12 @@ public class SlotService {
         if (!config.endTime().isAfter(config.startTime())) {
             throw new IllegalArgumentException(timeOfDay + " end time must be after start time");
         }
-        if (config.intervalMinutes() == null || config.intervalMinutes() < 15) {
-            throw new IllegalArgumentException(timeOfDay + " interval must be at least 15 minutes");
-        }
         if (config.price() == null || config.price().signum() < 0) {
             throw new IllegalArgumentException(timeOfDay + " price must not be negative");
         }
         int startMinutes = config.startTime().getHour() * 60 + config.startTime().getMinute();
         int endMinutes = config.endTime().getHour() * 60 + config.endTime().getMinute();
-        plans.add(new CategoryPlan(timeOfDay, startMinutes, endMinutes, config.intervalMinutes(), config.price()));
+        plans.add(new CategoryPlan(timeOfDay, startMinutes, endMinutes, intervalMinutes, config.price()));
     }
 
     private List<int[]> generateWindows(int windowStartMinutes, int windowEndMinutes, int intervalMinutes) {
@@ -183,6 +161,61 @@ public class SlotService {
     }
 
     private record CategoryPlan(TimeOfDay timeOfDay, int startMinutes, int endMinutes, int intervalMinutes, BigDecimal price) {
+    }
+
+    @Transactional
+    public BulkSlotDeleteResponse deleteForMonth(Long courtId, String requesterEmail, BulkSlotDeleteRequest request) {
+        Court court = courtService.getByIdForOwner(courtId, requesterEmail);
+
+        YearMonth yearMonth;
+        try {
+            yearMonth = YearMonth.of(request.year(), request.month());
+        } catch (DateTimeException e) {
+            throw new IllegalArgumentException("Invalid year/month");
+        }
+
+        LocalDate monthStart = yearMonth.atDay(1);
+        LocalDate monthEnd = yearMonth.atEndOfMonth();
+
+        List<Slot> candidates = slotRepository.findByCourtAndDateBetween(court, monthStart, monthEnd).stream()
+                .filter(slot -> request.categories().contains(resolveCategory(slot)))
+                .toList();
+
+        List<Slot> deletable = candidates.stream().filter(slot -> slot.getStatus() != SlotStatus.BOOKED).toList();
+        int skipped = candidates.size() - deletable.size();
+
+        slotRepository.deleteAll(deletable);
+        return new BulkSlotDeleteResponse(deletable.size(), skipped);
+    }
+
+    private TimeOfDay resolveCategory(Slot slot) {
+        return slot.getCategory() != null ? slot.getCategory() : TimeOfDay.fromStartTime(slot.getStartTime());
+    }
+
+    @Transactional
+    public BulkSlotBlockResponse blockForDateRange(Long courtId, String requesterEmail, BulkSlotBlockRequest request) {
+        Court court = courtService.getByIdForOwner(courtId, requesterEmail);
+
+        if (request.endDate().isBefore(request.startDate())) {
+            throw new IllegalArgumentException("End date must not be before start date");
+        }
+        if (!request.endTime().isAfter(request.startTime())) {
+            throw new IllegalArgumentException("End time must be after start time");
+        }
+
+        List<Slot> candidates = slotRepository.findByCourtAndDateBetween(court, request.startDate(), request.endDate())
+                .stream()
+                .filter(slot -> !slot.getStartTime().isBefore(request.startTime())
+                        && !slot.getEndTime().isAfter(request.endTime()))
+                .toList();
+
+        List<Slot> blockable = candidates.stream().filter(slot -> slot.getStatus() == SlotStatus.AVAILABLE).toList();
+        int skipped = candidates.size() - blockable.size();
+
+        blockable.forEach(slot -> slot.setStatus(SlotStatus.BLOCKED));
+        slotRepository.saveAll(blockable);
+
+        return new BulkSlotBlockResponse(blockable.size(), skipped);
     }
 
     @Transactional
